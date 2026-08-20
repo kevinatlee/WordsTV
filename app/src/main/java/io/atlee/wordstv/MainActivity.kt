@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.net.http.SslError
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -26,6 +27,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import org.json.JSONTokener
 
 class MainActivity : Activity() {
     private lateinit var webView: WebView
@@ -33,6 +35,7 @@ class MainActivity : Activity() {
     private lateinit var errorView: View
     private lateinit var retryButton: Button
     private var mainFrameFailed = false
+    private var pageLoadGeneration = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,7 +50,9 @@ class MainActivity : Activity() {
 
         val restored = savedInstanceState?.let { webView.restoreState(it) } != null
         if (!restored) {
-            loadWords()
+            webView.post { loadWords() }
+        } else {
+            webView.post { applyNativeInitialScale(webView) }
         }
     }
 
@@ -202,6 +207,8 @@ class MainActivity : Activity() {
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
+            useWideViewPort = true
+            loadWithOverviewMode = true
             allowFileAccess = false
             allowContentAccess = false
             mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
@@ -222,14 +229,16 @@ class MainActivity : Activity() {
 
             override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
                 super.onPageStarted(view, url, favicon)
+                pageLoadGeneration += 1
                 mainFrameFailed = false
+                applyNativeInitialScale(view)
                 showLoading()
             }
 
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
                 if (!mainFrameFailed && UrlPolicy.isAllowed(url)) {
-                    showContent()
+                    normalizeTvViewport(view)
                 }
             }
 
@@ -268,8 +277,94 @@ class MainActivity : Activity() {
 
     private fun loadWords() {
         mainFrameFailed = false
+        applyNativeInitialScale(webView)
         showLoading()
         webView.loadUrl(UrlPolicy.WORDS_URL)
+    }
+
+    private fun applyNativeInitialScale(view: WebView): TvViewportConfig {
+        val config = viewportConfig(view)
+        view.setInitialScale(config.webViewInitialScalePercent)
+        return config
+    }
+
+    private fun normalizeTvViewport(view: WebView) {
+        val generation = pageLoadGeneration
+        val config = viewportConfig(view)
+        val metaContent = config.viewportMetaContent()
+        val script = """
+            (function() {
+                if (window.location.origin !== 'https://words.atlee.io') return 'skipped-origin';
+                var head = document.head || document.getElementsByTagName('head')[0];
+                if (!head) return 'skipped-no-head';
+                var viewport = document.querySelector('meta[name="viewport"]');
+                if (!viewport) {
+                    viewport = document.createElement('meta');
+                    viewport.setAttribute('name', 'viewport');
+                    head.appendChild(viewport);
+                }
+                viewport.setAttribute('content', '$metaContent');
+                return viewport.getAttribute('content');
+            })();
+        """.trimIndent()
+
+        view.evaluateJavascript(script) {
+            view.postDelayed({
+                if (
+                    generation == pageLoadGeneration &&
+                    !mainFrameFailed &&
+                    UrlPolicy.isAllowed(view.url)
+                ) {
+                    showContent()
+                    logViewportDiagnostics(view, config)
+                }
+            }, VIEWPORT_SETTLE_DELAY_MS)
+        }
+    }
+
+    private fun viewportConfig(view: WebView): TvViewportConfig {
+        val availableWidth = view.width.takeIf { it > 0 }
+            ?: window.decorView.width.takeIf { it > 0 }
+            ?: resources.displayMetrics.widthPixels
+
+        return TvViewportNormalizer.calculate(
+            viewportWidthPx = availableWidth,
+            density = resources.displayMetrics.density,
+        )
+    }
+
+    private fun logViewportDiagnostics(view: WebView, config: TvViewportConfig) {
+        if (!BuildConfig.DEBUG) return
+
+        val script = """
+            (function() {
+                var visual = window.visualViewport;
+                return [
+                    'innerWidth=' + window.innerWidth,
+                    'innerHeight=' + window.innerHeight,
+                    'screen.width=' + window.screen.width,
+                    'screen.height=' + window.screen.height,
+                    'devicePixelRatio=' + window.devicePixelRatio,
+                    'visualViewport.width=' + (visual ? visual.width : 'unavailable'),
+                    'visualViewport.height=' + (visual ? visual.height : 'unavailable')
+                ].join(' ');
+            })();
+        """.trimIndent()
+
+        view.evaluateJavascript(script) { rawValue ->
+            val diagnostics = runCatching {
+                JSONTokener(rawValue).nextValue() as? String
+            }.getOrNull() ?: rawValue
+
+            Log.d(
+                LOG_TAG,
+                "Viewport $diagnostics native=${view.width}x${view.height} " +
+                    "density=${resources.displayMetrics.density} " +
+                    "targetCssWidth=${config.cssWidth} " +
+                    "metaInitialScale=${config.metaInitialScale} " +
+                    "webViewInitialScalePercent=${config.webViewInitialScalePercent}",
+            )
+        }
     }
 
     private fun showLoading() {
@@ -286,6 +381,7 @@ class MainActivity : Activity() {
     }
 
     private fun showConnectionError() {
+        pageLoadGeneration += 1
         mainFrameFailed = true
         webView.stopLoading()
         webView.visibility = View.INVISIBLE
@@ -314,4 +410,9 @@ class MainActivity : Activity() {
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    private companion object {
+        const val LOG_TAG = "WordsTV"
+        const val VIEWPORT_SETTLE_DELAY_MS = 100L
+    }
 }
