@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Words</string>
+    <string name="loading_words">Loading Words…</string>
+    <string name="connection_error_title">Words is unavailable</string>
+    <string name="connection_error_message">The Words server cannot currently be reached.</string>
+    <string name="retry">Retry</string>
+</resources>

@@ -1,0 +1,11 @@
+<resources>
+    <style name="Theme.WordsTV" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowBackground">@color/brand_navy</item>
+        <item name="android:colorAccent">@color/brand_blue</item>
+        <item name="android:navigationBarColor">@color/brand_navy</item>
+        <item name="android:statusBarColor">@color/brand_navy</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
