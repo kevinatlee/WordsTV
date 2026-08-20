@@ -9,33 +9,34 @@ class TvViewportNormalizerTest {
     fun normalizesDensityScaledChromecastSurface() {
         val config = TvViewportNormalizer.calculate(viewportWidthPx = 1920, density = 2f)
 
-        assertEquals(1920, config.cssWidth)
-        assertEquals(0.5, config.metaInitialScale, 0.0001)
-        assertEquals(100, config.webViewInitialScalePercent)
+        assertEquals(1728, TvViewportNormalizer.TARGET_CSS_WIDTH)
+        assertEquals(1728, config.cssWidth)
+        assertEquals(5.0 / 9.0, config.metaInitialScale, 0.0001)
+        assertEquals(111, config.webViewInitialScalePercent)
         assertEquals(
-            "width=1920, initial-scale=0.5, minimum-scale=0.5, " +
-                "maximum-scale=0.5, user-scalable=no",
+            "width=1728, initial-scale=0.5556, minimum-scale=0.5556, " +
+                "maximum-scale=0.5556, user-scalable=no",
             config.viewportMetaContent(),
         )
     }
 
     @Test
-    fun preservesEffective1920CssPixelViewport() {
+    fun preservesCalibratedViewportAcross1080pAnd4kSurfaces() {
         val mdpi1080p = TvViewportNormalizer.calculate(viewportWidthPx = 1920, density = 1f)
         val densityScaled4k = TvViewportNormalizer.calculate(viewportWidthPx = 3840, density = 2f)
 
-        assertEquals(1.0, mdpi1080p.metaInitialScale, 0.0001)
-        assertEquals(100, mdpi1080p.webViewInitialScalePercent)
-        assertEquals(1.0, densityScaled4k.metaInitialScale, 0.0001)
-        assertEquals(200, densityScaled4k.webViewInitialScalePercent)
+        assertEquals(10.0 / 9.0, mdpi1080p.metaInitialScale, 0.0001)
+        assertEquals(111, mdpi1080p.webViewInitialScalePercent)
+        assertEquals(10.0 / 9.0, densityScaled4k.metaInitialScale, 0.0001)
+        assertEquals(222, densityScaled4k.webViewInitialScalePercent)
     }
 
     @Test
     fun adaptsToDifferentDensityWithoutDeviceChecks() {
         val config = TvViewportNormalizer.calculate(viewportWidthPx = 1920, density = 1.5f)
 
-        assertEquals(2.0 / 3.0, config.metaInitialScale, 0.0001)
-        assertEquals(100, config.webViewInitialScalePercent)
+        assertEquals(20.0 / 27.0, config.metaInitialScale, 0.0001)
+        assertEquals(111, config.webViewInitialScalePercent)
     }
 
     @Test
@@ -52,7 +53,7 @@ class TvViewportNormalizerTest {
         )
 
         configs.forEach { config ->
-            assertEquals(1920, config.cssWidth)
+            assertEquals(1728, config.cssWidth)
             assertTrue(config.metaInitialScale.isFinite())
             assertTrue(config.metaInitialScale in 0.1..4.0)
             assertTrue(config.webViewInitialScalePercent in 25..400)
