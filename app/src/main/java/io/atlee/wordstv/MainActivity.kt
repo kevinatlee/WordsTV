@@ -107,6 +107,8 @@ class MainActivity : Activity() {
     private fun createContentView(): View {
         val root = FrameLayout(this).apply {
             setBackgroundColor(Color.rgb(16, 23, 42))
+            clipChildren = true
+            clipToPadding = true
         }
 
         webView = WebView(this).apply {
@@ -118,7 +120,15 @@ class MainActivity : Activity() {
             FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT,
-            ),
+            ).apply {
+                // Raw pixels deliberately place the compositor edge outside the clipped parent.
+                setMargins(
+                    -WEBVIEW_EDGE_BLEED_PX,
+                    -WEBVIEW_EDGE_BLEED_PX,
+                    -WEBVIEW_EDGE_BLEED_PX,
+                    -WEBVIEW_EDGE_BLEED_PX,
+                )
+            },
         )
 
         loadingView = createLoadingView()
@@ -323,15 +333,21 @@ class MainActivity : Activity() {
     }
 
     private fun viewportConfig(view: WebView): TvViewportConfig {
-        val availableWidth = view.width.takeIf { it > 0 }
-            ?: window.decorView.width.takeIf { it > 0 }
-            ?: resources.displayMetrics.widthPixels
-
         return TvViewportNormalizer.calculate(
-            viewportWidthPx = availableWidth,
+            viewportWidthPx = visibleViewportWidth(view),
             density = resources.displayMetrics.density,
         )
     }
+
+    private fun visibleViewportWidth(view: WebView): Int =
+        (view.parent as? View)?.width?.takeIf { it > 0 }
+            ?: window.decorView.width.takeIf { it > 0 }
+            ?: resources.displayMetrics.widthPixels
+
+    private fun visibleViewportHeight(view: WebView): Int =
+        (view.parent as? View)?.height?.takeIf { it > 0 }
+            ?: window.decorView.height.takeIf { it > 0 }
+            ?: resources.displayMetrics.heightPixels
 
     private fun logViewportDiagnostics(view: WebView, config: TvViewportConfig) {
         if (!BuildConfig.DEBUG) return
@@ -358,7 +374,8 @@ class MainActivity : Activity() {
 
             Log.d(
                 LOG_TAG,
-                "Viewport $diagnostics native=${view.width}x${view.height} " +
+                "Viewport $diagnostics " +
+                    "native=${visibleViewportWidth(view)}x${visibleViewportHeight(view)} " +
                     "density=${resources.displayMetrics.density} " +
                     "targetCssWidth=${config.cssWidth} " +
                     "metaInitialScale=${config.metaInitialScale} " +
@@ -414,5 +431,6 @@ class MainActivity : Activity() {
     private companion object {
         const val LOG_TAG = "WordsTV"
         const val VIEWPORT_SETTLE_DELAY_MS = 100L
+        const val WEBVIEW_EDGE_BLEED_PX = 2
     }
 }
