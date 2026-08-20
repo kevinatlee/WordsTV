@@ -8,9 +8,9 @@ The icon and TV banner included in this initial version are placeholder artwork 
 
 ## TV viewport normalization
 
-WordsTV presents the game as a stable 1728-CSS-pixel-wide 16:9 TV layout (approximately 1728×972) without changing the hosted Words application. The WebView enables wide-viewport and overview modes, then replaces the page viewport metadata at runtime only for `https://words.atlee.io` top-level pages.
+WordsTV presents the game as a stable 1536-CSS-pixel-wide 16:9 TV layout (approximately 1536×864) without changing the hosted Words application. The WebView enables wide-viewport and overview modes, then replaces the page viewport metadata at runtime only for `https://words.atlee.io` top-level pages.
 
-The runtime viewport uses `width=1728` and calculates its initial scale from the WebView's measured pixel width and Android display density. This adapts to 1080p surfaces, density-scaled Chromecast/Google TV surfaces, and native 4K surfaces without a fixed zoom percentage or device-model checks. Android and the television remain responsible for final physical output scaling.
+The runtime viewport uses `width=1536` and calculates its initial scale from the WebView's measured pixel width and Android display density. This adapts to 1080p surfaces, density-scaled Chromecast/Google TV surfaces, and native 4K surfaces without a fixed zoom percentage or device-model checks. Android and the television remain responsible for final physical output scaling.
 
 The normalization is reapplied after each successful top-level page load or reload. It does not inject component styles or alter the separately hosted Words source.
 
