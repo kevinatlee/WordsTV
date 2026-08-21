@@ -21,7 +21,7 @@ internal data class TvViewportConfig(
 }
 
 internal object TvViewportNormalizer {
-    const val TARGET_CSS_WIDTH = 1536
+    const val TARGET_CSS_WIDTH = 1440
 
     private const val DEFAULT_META_SCALE = 1.0
     private const val DEFAULT_INITIAL_SCALE_PERCENT = 100
